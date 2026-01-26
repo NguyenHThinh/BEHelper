@@ -1,13 +1,21 @@
 FROM node:18-alpine
 
-WORKDIR /
+WORKDIR /app
 
+# Copy package files
 COPY package*.json ./
 
-RUN npm install --production
+# Install all dependencies (including devDependencies for TypeScript)
+RUN npm install
 
+# Copy source code
 COPY . .
 
+# Build TypeScript to JavaScript
+RUN npm run build
+
+# Expose port
 EXPOSE 8386
 
-CMD ["npm", "run", "start"]
+# Start the application
+CMD ["node", "server.js"]

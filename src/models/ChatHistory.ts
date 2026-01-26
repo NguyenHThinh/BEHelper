@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
-export interface IChatHistory extends Document {
+// Interface cho ChatHistory document
+export interface IChatHistory {
     userId?: mongoose.Types.ObjectId;
     prompt: string;
     response: string;
@@ -11,6 +12,7 @@ export interface IChatHistory extends Document {
         totalTokens: number;
     };
     createdAt: Date;
+    updatedAt: Date;
 }
 
 const ChatHistorySchema = new Schema<IChatHistory>(
@@ -33,18 +35,9 @@ const ChatHistorySchema = new Schema<IChatHistory>(
             required: true,
         },
         tokensUsed: {
-            promptTokens: {
-                type: Number,
-                required: false,
-            },
-            completionTokens: {
-                type: Number,
-                required: false,
-            },
-            totalTokens: {
-                type: Number,
-                required: false,
-            },
+            promptTokens: Number,
+            completionTokens: Number,
+            totalTokens: Number,
         },
     },
     {

@@ -1,10 +1,9 @@
 import { Request, Response } from 'express';
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import ChatHistory from '../models/ChatHistory';
 
-const openai = new OpenAI({
-    apiKey: process.env.API_OPENAI_KEY,
-});
+// Khởi tạo Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export const chatCompletion = async (req: Request, res: Response) => {
     try {
@@ -17,55 +16,46 @@ export const chatCompletion = async (req: Request, res: Response) => {
             });
         }
 
-        if (!process.env.API_OPENAI_KEY) {
+        if (!process.env.GEMINI_API_KEY) {
             return res.status(500).json({
                 success: false,
-                message: 'API key OpenAI chưa được cấu hình',
+                message: 'API key Gemini chưa được cấu hình',
             });
         }
 
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-3.5-turbo',
-            messages: [
-                {
-                    role: 'user',
-                    content: prompt,
-                },
-            ],
-            temperature: 0.7,
-            max_tokens: 1000,
-        });
-
-        const responseText = completion.choices[0]?.message?.content || '';
+        // Sử dụng Gemini Pro model
+        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const responseText = response.text();
 
         // Lưu lịch sử chat vào database
         try {
             await ChatHistory.create({
-                userId: (req as any).userId, // Nếu có middleware auth
+                userId: (req as any).userId,
                 prompt: prompt,
                 response: responseText,
-                model: completion.model,
+                model: 'gemini-3-flash-preview',
                 tokensUsed: {
-                    promptTokens: completion.usage?.prompt_tokens || 0,
-                    completionTokens: completion.usage?.completion_tokens || 0,
-                    totalTokens: completion.usage?.total_tokens || 0,
+                    promptTokens: 0, // Gemini không trả về token usage trong free tier
+                    completionTokens: 0,
+                    totalTokens: 0,
                 },
             });
         } catch (dbError) {
             console.error('Lỗi khi lưu lịch sử chat:', dbError);
-            // Không throw error, vẫn trả về response cho user
         }
 
         return res.status(200).json({
             success: true,
             data: {
                 response: responseText,
-                usage: completion.usage,
-                model: completion.model,
+                model: 'gemini-3-flash-preview',
             },
         });
     } catch (error: any) {
-        console.error('OpenAI Error:', error);
+        console.error('Gemini Error:', error);
         return res.status(500).json({
             success: false,
             message: 'Đã xảy ra lỗi khi xử lý yêu cầu',
@@ -85,10 +75,10 @@ export const streamChatCompletion = async (req: Request, res: Response) => {
             });
         }
 
-        if (!process.env.API_OPENAI_KEY) {
+        if (!process.env.GEMINI_API_KEY) {
             return res.status(500).json({
                 success: false,
-                message: 'API key OpenAI chưa được cấu hình',
+                message: 'API key Gemini chưa được cấu hình',
             });
         }
 
@@ -97,30 +87,17 @@ export const streamChatCompletion = async (req: Request, res: Response) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        const stream = await openai.chat.completions.create({
-            model: 'gpt-3.5-turbo',
-            messages: [
-                {
-                    role: 'user',
-                    content: prompt,
-                },
-            ],
-            temperature: 0.7,
-            max_tokens: 1000,
-            stream: true,
-        });
-
+        const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+        
+        const result = await model.generateContentStream(prompt);
+        
         let fullResponse = '';
-        let modelUsed = 'gpt-3.5-turbo';
 
-        for await (const chunk of stream) {
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-                fullResponse += content;
-                res.write(`data: ${JSON.stringify({ content })}\n\n`);
-            }
-            if (chunk.model) {
-                modelUsed = chunk.model;
+        for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            if (chunkText) {
+                fullResponse += chunkText;
+                res.write(`data: ${JSON.stringify({ content: chunkText })}\n\n`);
             }
         }
 
@@ -130,7 +107,7 @@ export const streamChatCompletion = async (req: Request, res: Response) => {
                 userId: (req as any).userId,
                 prompt: prompt,
                 response: fullResponse,
-                model: modelUsed,
+                model: 'gemini-3-flash-preview',
             });
         } catch (dbError) {
             console.error('Lỗi khi lưu lịch sử chat:', dbError);
@@ -139,7 +116,7 @@ export const streamChatCompletion = async (req: Request, res: Response) => {
         res.write('data: [DONE]\n\n');
         res.end();
     } catch (error: any) {
-        console.error('OpenAI Stream Error:', error);
+        console.error('Gemini Stream Error:', error);
         res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
         res.end();
     }

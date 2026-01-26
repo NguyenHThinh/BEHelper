@@ -1,6 +1,6 @@
 FROM node:18-alpine
 
-WORKDIR /dist
+WORKDIR dist
 
 # Copy package files
 COPY package*.json ./
@@ -18,4 +18,4 @@ RUN npm run build
 EXPOSE 8386
 
 # Start the application
-CMD ["node", "server.js"]
+CMD ["npm", "run", "start"]

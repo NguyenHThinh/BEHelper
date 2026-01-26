@@ -7,7 +7,7 @@ import openaiRoutes from './routes/openai.route';
 const app = express();
 
 app.use(cors({
-    origin: process.env.FRONTEND_URL as string,
+    origin: process.env.FRONTEND_URL?.split(','),
     credentials: true,
 }));
 app.use(express.json());

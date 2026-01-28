@@ -4,11 +4,11 @@ import jwt, { JwtPayload } from 'jsonwebtoken';
 import User from '../models/User';
 
 const generateAccessToken = (userId: string) => {
-    return jwt.sign({ userId }, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: '15m' });
+    return jwt.sign({ userId }, process.env.ACCESS_TOKEN_KEY as string, { expiresIn: '15m' });
 };
 
 const generateRefreshToken = (userId: string) => {
-    return jwt.sign({ userId }, process.env.REFRESH_TOKEN_SECRET as string, { expiresIn: '7d' });
+    return jwt.sign({ userId }, process.env.REFRESH_TOKEN_KEY as string, { expiresIn: '7d' });
 };
 
 export const register = async (req: Request, res: Response) => {
@@ -60,9 +60,9 @@ export const login = async (req: Request, res: Response) => {
         await user.save();
 
         res
-            .cookie(process.env.JWT_ACCESS_SECRET as string, accessToken,
+            .cookie(process.env.ACCESS_TOKEN_KEY as string, accessToken,
                 { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
-            .cookie(process.env.JWT_REFRESH_SECRET as string, refreshToken,
+            .cookie(process.env.REFRESH_TOKEN_KEY as string, refreshToken,
                 { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
             .status(200).json({ message: 'Logged in successfully' });
     } catch (error: any) {
@@ -72,8 +72,8 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = (res: Response) => {
-    res.clearCookie(process.env.JWT_ACCESS_SECRET as string)
-        .clearCookie(process.env.JWT_REFRESH_SECRET as string)
+    res.clearCookie(process.env.ACCESS_TOKEN_KEY as string)
+        .clearCookie(process.env.REFRESH_TOKEN_KEY as string)
         .status(200).json({ message: 'Logged out successfully' });
 };
 
@@ -85,14 +85,14 @@ export const refreshToken = async (req: Request, res: Response) => {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
-        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET as string);
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_KEY as string);
         const user = await User.findOne({ _id: (decoded as JwtPayload)._id });
         if (!user) {
             return res.status(401).json({ message: 'Unauthorized' });
         }
 
         const accessToken = generateAccessToken(user._id.toString());
-        res.cookie(process.env.JWT_ACCESS_SECRET as string, accessToken,
+        res.cookie(process.env.ACCESS_TOKEN_KEY as string, accessToken,
             { httpOnly: true, secure: true, maxAge: 15 * 60 * 1000 })
             .status(200).json({ message: 'Token refreshed successfully' });
     } catch (error: any) {

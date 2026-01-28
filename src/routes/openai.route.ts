@@ -1,14 +1,17 @@
 import { Router } from 'express';
-import { 
-    chatCompletion, 
+import {
+    chatCompletion,
     streamChatCompletion,
     getChatHistory,
     getChatById,
     deleteChatHistory,
     deleteAllChatHistory
 } from '../controllers/openai.controller';
+import { verifyToken } from '../middlewares/auth.middleware';
 
 const router = Router();
+
+router.use(verifyToken);
 
 // Route để gửi prompt và nhận response
 router.post('/chat', chatCompletion);

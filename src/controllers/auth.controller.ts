@@ -41,16 +41,16 @@ export const register = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
     try {
-        const { email, password } = req.body; // Changed from username to email
+        const { username, password } = req.body; // Changed from username to email
 
-        const user = await User.findOne({ email }); // Find by email
+        const user = await User.findOne({ username }); // Find by email
         if (!user) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ message: 'Email or password is incorrect' });
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ message: 'Username or password is incorrect' });
         }
 
         const accessToken = generateAccessToken(user._id.toString());
@@ -60,11 +60,11 @@ export const login = async (req: Request, res: Response) => {
         await user.save();
 
         res
-            .cookie(process.env.ACCESS_TOKEN_KEY as string, accessToken,
+            .cookie('accessToken', accessToken,
                 { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
-            .cookie(process.env.REFRESH_TOKEN_KEY as string, refreshToken,
+            .cookie('refreshToken', refreshToken,
                 { httpOnly: true, secure: true, maxAge: 7 * 24 * 60 * 60 * 1000 })
-            .status(200).json({ message: 'Logged in successfully' });
+            .status(200).json({ message: 'Logged in successfully', data: user });
     } catch (error: any) {
         console.error('Login Error:', error);
         res.status(500).json({ message: 'Internal Server Error' });
@@ -72,8 +72,8 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = (res: Response) => {
-    res.clearCookie(process.env.ACCESS_TOKEN_KEY as string)
-        .clearCookie(process.env.REFRESH_TOKEN_KEY as string)
+    res.clearCookie('accessToken')
+        .clearCookie('refreshToken')
         .status(200).json({ message: 'Logged out successfully' });
 };
 

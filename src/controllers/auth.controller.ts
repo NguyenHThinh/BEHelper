@@ -32,7 +32,7 @@ export const register = async (req: Request, res: Response) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         await User.create({ username, name, email, password: hashedPassword });
 
-        res.status(201).json({ message: 'User created successfully' });
+        res.status(201).json({ message: 'User created successfully', success: true });
     } catch (error: any) {
         console.error('Register Error:', error);
         res.status(500).json({ message: 'Internal Server Error', error: error.message });
@@ -74,10 +74,9 @@ export const login = async (req: Request, res: Response) => {
             })
             .status(200)
             .json({
+                success: true,
                 message: 'Logged in successfully',
-                user: {
-                    id: user._id,
-                    username: user.username,
+                data: {
                     email: user.email,
                     name: user.name
                 }
@@ -93,7 +92,7 @@ export const logout = (req: Request, res: Response) => {
         .clearCookie('accessToken')
         .clearCookie('refreshToken')
         .status(200)
-        .json({ message: 'Logged out successfully' });
+        .json({ message: 'Logged out successfully', success: true });
 };
 
 export const refreshToken = async (req: Request, res: Response) => {

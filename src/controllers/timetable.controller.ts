@@ -86,3 +86,43 @@ export const deleteEntry = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Internal Server Error' });
     }
 };
+
+export const updateEntry = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = (req as any).userId;
+        const { subject, location, startTime, endTime, note } = req.body;
+
+        if (!subject || !location || !startTime || !endTime) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const start = new Date(startTime);
+        const end = new Date(endTime);
+
+        if (end <= start) {
+            return res.status(400).json({ message: 'End time must be after start time' });
+        }
+
+        const updatedEntry = await Timetable.findOneAndUpdate(
+            { _id: id, userId },
+            {
+                subject,
+                location,
+                startTime: start,
+                endTime: end,
+                note
+            },
+            { new: true }
+        );
+
+        if (!updatedEntry) {
+            return res.status(404).json({ message: 'Entry not found or unauthorized' });
+        }
+
+        res.status(200).json({ message: 'Timetable entry updated', data: updatedEntry });
+    } catch (error: any) {
+        console.error('Update Timetable Error:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};

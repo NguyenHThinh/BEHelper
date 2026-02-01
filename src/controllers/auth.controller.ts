@@ -15,7 +15,6 @@ export const register = async (req: Request, res: Response) => {
     try {
         let { username, name, email, password } = req.body;
 
-        // Default username to email if not provided
         if (!username) {
             username = email;
         }
@@ -34,16 +33,32 @@ export const register = async (req: Request, res: Response) => {
 
         res.status(201).json({ message: 'User created successfully', success: true });
     } catch (error: any) {
-        console.error('Register Error:', error);
+        res.status(500).json({ message: 'Internal Server Error', error: error.message });
+    }
+};
+
+export const getProfile = async (req: Request, res: Response) => {
+    try {
+        const token = req.cookies['accessToken'];
+        if (!token) {
+            return res.status(401).json({ message: 'No token provided' });
+        }
+        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_KEY as string) as JwtPayload;
+        const user = await User.findById(decoded.userId);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json({ success: true, data: { email: user.email, name: user.name } });
+    } catch (error: any) {
         res.status(500).json({ message: 'Internal Server Error', error: error.message });
     }
 };
 
 export const login = async (req: Request, res: Response) => {
     try {
-        const { username, password } = req.body; // Changed from username to email
+        const { username, password } = req.body;
 
-        const user = await User.findOne({ username }); // Find by email
+        const user = await User.findOne({ username });
         if (!user) {
             return res.status(401).json({ message: 'Email or password is incorrect' });
         }
@@ -64,13 +79,13 @@ export const login = async (req: Request, res: Response) => {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
-                maxAge: 15 * 60 * 1000 // 15 phút
+                maxAge: 15 * 60 * 1000
             })
             .cookie('refreshToken', refreshToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'lax',
-                maxAge: 7 * 24 * 60 * 60 * 1000 // 7 ngày
+                maxAge: 7 * 24 * 60 * 60 * 1000
             })
             .status(200)
             .json({
@@ -82,17 +97,16 @@ export const login = async (req: Request, res: Response) => {
                 }
             });
     } catch (error: any) {
-        console.error('Login Error:', error);
         res.status(500).json({ message: 'Internal Server Error' });
     }
 };
 
-export const logout = (req: Request, res: Response) => {
+export const logout = (_: Request, res: Response) => {
     res
         .clearCookie('accessToken')
         .clearCookie('refreshToken')
         .status(200)
-        .json({ message: 'Logged out successfully', success: true });
+        .json({ success: true });
 };
 
 export const refreshToken = async (req: Request, res: Response) => {
@@ -105,13 +119,13 @@ export const refreshToken = async (req: Request, res: Response) => {
 
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as JwtPayload;
         const user = await User.findOne({ _id: decoded.userId });
-        
+
         if (!user || user.refreshToken !== refreshToken) {
             return res.status(401).json({ message: 'Invalid refresh token' });
         }
 
         const accessToken = generateAccessToken(user._id.toString());
-        
+
         res
             .cookie('accessToken', accessToken, {
                 httpOnly: true,
@@ -122,7 +136,6 @@ export const refreshToken = async (req: Request, res: Response) => {
             .status(200)
             .json({ message: 'Token refreshed successfully' });
     } catch (error: any) {
-        console.error('Refresh Token Error:', error);
         res.status(401).json({ message: 'Invalid or expired refresh token' });
     }
 };

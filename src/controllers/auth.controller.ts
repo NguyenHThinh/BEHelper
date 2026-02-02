@@ -101,12 +101,32 @@ export const login = async (req: Request, res: Response) => {
     }
 };
 
-export const logout = (_: Request, res: Response) => {
-    res
-        .clearCookie('accessToken')
-        .clearCookie('refreshToken')
-        .status(200)
-        .json({ success: true });
+export const logout = async (req: Request, res: Response) => {
+    try {
+        // Lấy refreshToken từ cookie để tìm user
+        const refreshToken = req.cookies['refreshToken'];
+        
+        if (refreshToken) {
+            // Revoke refreshToken trong database
+            await User.updateOne(
+                { refreshToken },
+                { $unset: { refreshToken: 1 } }
+            );
+        }
+
+        res
+            .clearCookie('accessToken')
+            .clearCookie('refreshToken')
+            .status(200)
+            .json({ success: true, message: 'Logged out successfully' });
+    } catch (error: any) {
+        // Vẫn clear cookie ngay cả khi có lỗi
+        res
+            .clearCookie('accessToken')
+            .clearCookie('refreshToken')
+            .status(200)
+            .json({ success: true, message: 'Logged out successfully' });
+    }
 };
 
 export const refreshToken = async (req: Request, res: Response) => {

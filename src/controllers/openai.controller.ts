@@ -25,7 +25,7 @@ export const chatCompletion = async (req: Request, res: Response) => {
 
         // Sử dụng Gemini Pro model
         const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
-        
+
         const result = await model.generateContent(prompt);
         const response = await result.response;
         const responseText = response.text();
@@ -88,9 +88,9 @@ export const streamChatCompletion = async (req: Request, res: Response) => {
         res.setHeader('Connection', 'keep-alive');
 
         const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
-        
+
         const result = await model.generateContentStream(prompt);
-        
+
         let fullResponse = '';
 
         for await (const chunk of result.stream) {
@@ -126,10 +126,16 @@ export const streamChatCompletion = async (req: Request, res: Response) => {
 export const getChatHistory = async (req: Request, res: Response) => {
     try {
         const { page = 1, limit = 20 } = req.query;
-        const userId = (req as any).userId; // Từ middleware auth nếu có
+        const userId = (req as any).userId;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized',
+            });
+        }
 
-        const query = userId ? { userId } : {};
-        
+        const query = { userId };
+
         const totalItems = await ChatHistory.countDocuments(query);
         const history = await ChatHistory.find(query)
             .sort({ createdAt: -1 })
@@ -163,13 +169,13 @@ export const getChatHistory = async (req: Request, res: Response) => {
 export const getChatById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-
-        const chat = await ChatHistory.findById(id).select('-__v');
+        const userId = (req as any).userId;
+        const chat = await ChatHistory.findOne({ _id: id, userId }).select('-__v');
 
         if (!chat) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy cuộc trò chuyện',
+                message: 'Không tìm thấy cuộc trò chuyện hoặc bạn không có quyền truy cập',
             });
         }
 
@@ -191,13 +197,14 @@ export const getChatById = async (req: Request, res: Response) => {
 export const deleteChatHistory = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const userId = (req as any).userId;
 
-        const deletedChat = await ChatHistory.findByIdAndDelete(id);
+        const deletedChat = await ChatHistory.findOneAndDelete({ _id: id, userId });
 
         if (!deletedChat) {
             return res.status(404).json({
                 success: false,
-                message: 'Không tìm thấy cuộc trò chuyện',
+                message: 'Không tìm thấy cuộc trò chuyện hoặc bạn không có quyền xóa',
             });
         }
 
@@ -219,7 +226,13 @@ export const deleteChatHistory = async (req: Request, res: Response) => {
 export const deleteAllChatHistory = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).userId;
-        const query = userId ? { userId } : {};
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized',
+            });
+        }
+        const query = { userId };
 
         const result = await ChatHistory.deleteMany(query);
 

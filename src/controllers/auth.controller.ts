@@ -39,16 +39,21 @@ export const register = async (req: Request, res: Response) => {
 
 export const getProfile = async (req: Request, res: Response) => {
     try {
-        const token = req.cookies['accessToken'];
-        if (!token) {
-            return res.status(401).json({ message: 'No token provided' });
-        }
-        const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_KEY as string) as JwtPayload;
-        const user = await User.findById(decoded.userId);
+        // userId already verified by verifyToken middleware
+        const userId = (req as any).userId;
+
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
-        res.status(200).json({ success: true, data: { email: user.email, name: user.name } });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                email: user.email,
+                name: user.name
+            }
+        });
     } catch (error: any) {
         res.status(500).json({ message: 'Internal Server Error', error: error.message });
     }
@@ -77,16 +82,11 @@ export const login = async (req: Request, res: Response) => {
         const isProduction = process.env.NODE_ENV === 'production';
 
         res
-            .cookie('accessToken', accessToken, {
-                httpOnly: true,
-                secure: isProduction,
-                sameSite: isProduction ? 'none' : 'lax', // FE and BE are on different domains
-                maxAge: 15 * 60 * 1000
-            })
+            // Only set refreshToken cookie (secure, httpOnly)
             .cookie('refreshToken', refreshToken, {
                 httpOnly: true,
                 secure: isProduction,
-                sameSite: isProduction ? 'none' : 'lax', // FE and BE are on different domains
+                sameSite: isProduction ? 'none' : 'lax',
                 maxAge: 7 * 24 * 60 * 60 * 1000
             })
             .status(200)
@@ -95,7 +95,8 @@ export const login = async (req: Request, res: Response) => {
                 message: 'Logged in successfully',
                 data: {
                     email: user.email,
-                    name: user.name
+                    name: user.name,
+                    accessToken  // Return accessToken in response body
                 }
             });
     } catch (error: any) {
@@ -116,16 +117,26 @@ export const logout = async (req: Request, res: Response) => {
             );
         }
 
+        const isProduction = process.env.NODE_ENV === 'production';
+
         res
-            .clearCookie('accessToken')
-            .clearCookie('refreshToken')
+            // Only clear refreshToken cookie (accessToken is in memory on frontend)
+            .clearCookie('refreshToken', {
+                httpOnly: true,
+                secure: isProduction,
+                sameSite: isProduction ? 'none' : 'lax'
+            })
             .status(200)
             .json({ success: true, message: 'Logged out successfully' });
     } catch (error: any) {
+        const isProduction = process.env.NODE_ENV === 'production';
         // Vẫn clear cookie ngay cả khi có lỗi
         res
-            .clearCookie('accessToken')
-            .clearCookie('refreshToken')
+            .clearCookie('refreshToken', {
+                httpOnly: true,
+                secure: isProduction,
+                sameSite: isProduction ? 'none' : 'lax'
+            })
             .status(200)
             .json({ success: true, message: 'Logged out successfully' });
     }
@@ -139,7 +150,7 @@ export const refreshToken = async (req: Request, res: Response) => {
             return res.status(401).json({ message: 'No refresh token provided' });
         }
 
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET as string) as JwtPayload;
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_KEY as string) as JwtPayload;
         const user = await User.findOne({ _id: decoded.userId });
 
         if (!user || user.refreshToken !== refreshToken) {
@@ -149,14 +160,12 @@ export const refreshToken = async (req: Request, res: Response) => {
         const accessToken = generateAccessToken(user._id.toString());
 
         res
-            .cookie('accessToken', accessToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                maxAge: 15 * 60 * 1000
-            })
             .status(200)
-            .json({ message: 'Token refreshed successfully' });
+            .json({
+                success: true,
+                message: 'Token refreshed successfully',
+                data: { accessToken }  // Return accessToken in response body
+            });
     } catch (error: any) {
         res.status(401).json({ message: 'Invalid or expired refresh token' });
     }

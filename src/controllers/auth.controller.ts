@@ -77,14 +77,14 @@ export const login = async (req: Request, res: Response) => {
         res
             .cookie('accessToken', accessToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
+                secure: true,
+                sameSite: 'none', // FE and BE are on different domains
                 maxAge: 15 * 60 * 1000
             })
             .cookie('refreshToken', refreshToken, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
+                secure: true,
+                sameSite: 'none', // FE and BE are on different domains
                 maxAge: 7 * 24 * 60 * 60 * 1000
             })
             .status(200)

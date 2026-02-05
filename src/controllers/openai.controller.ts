@@ -26,7 +26,30 @@ export const chatCompletion = async (req: Request, res: Response) => {
         // Sử dụng Gemini Pro model
         const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
 
-        const result = await model.generateContent(prompt);
+        // Lấy lịch sử chat gần đây để tạo context (tối đa 14 tin nhắn = 7 cặp hội thoại)
+        const userId = (req as any).userId;
+        console.log('Fetching history for userId:', userId);
+
+        const recentHistory = await ChatHistory.find({ userId })
+            .sort({ createdAt: -1 })
+            .limit(14)
+            .lean();
+
+        console.log('Found history entries:', recentHistory.length);
+
+        // Chuyển đổi định dạng cho Gemini API
+        const formattedHistory = recentHistory.reverse().map(item => [
+            { role: 'user', parts: [{ text: item.prompt }] },
+            { role: 'model', parts: [{ text: item.response }] }
+        ]).flat();
+
+        console.log('Formatted history for Gemini:', JSON.stringify(formattedHistory, null, 2));
+
+        const chat = model.startChat({
+            history: formattedHistory,
+        });
+
+        const result = await chat.sendMessage(prompt);
         const response = await result.response;
         const responseText = response.text();
 

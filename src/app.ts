@@ -26,4 +26,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/openai', openaiRoutes);
 app.use('/api/timetable', timetableRoutes);
 
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('SERVER ERROR:', err.stack);
+    res.status(err.status || 500).json({
+        success: false,
+        message: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message
+    });
+});
+
 export default app;
